@@ -11,6 +11,15 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file located at the root
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../.env'))
+
+API_KEY = os.getenv('API_KEY')
+NBA_EVENTS_API_URL = os.getenv('NBA_EVENTS_API_URL')
+NBA_PLAYER_PROPS_URL = os.getenv('NBA_PLAYER_PROPS_URL')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
