@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from oddsApi.settings import API_KEY, NBA_PLAYER_PROPS_URL
-from .utils import *
+from ..utils import *
 import requests
 
 def get_nba_player_props_odds(request, event_id):
@@ -51,10 +51,7 @@ def get_nba_player_props_odds(request, event_id):
                         "bookmaker": bookmaker["title"]
                     })
 
-        filtered_player_props = filter_better_odds(player_props)
-        sorted_player_props = {k: filtered_player_props[k] for k in sorted(filtered_player_props.keys())}
-
-        return {"player_props": sorted_player_props}
+        return {"player_props": player_props}
 
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}

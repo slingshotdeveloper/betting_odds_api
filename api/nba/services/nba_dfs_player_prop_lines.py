@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from oddsApi.settings import API_KEY, NBA_PLAYER_PROPS_URL
 import requests
-from .utils import *
+from ..utils import *
 
 def get_dfs_player_props_lines(request, event_id):
     """
