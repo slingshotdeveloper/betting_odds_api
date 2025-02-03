@@ -3,6 +3,7 @@ from .nba.views import HomeView, get_nba_events_info, get_nba_player_props_value
 from .nfl.views import get_nfl_events_info, get_nfl_player_props_value
 from .mlb.views import get_mlb_events_info, get_mlb_player_props_value
 from .nhl.views import get_nhl_events_info, get_nhl_player_props_value
+from .ncaaf.views import get_ncaaf_events_info, get_ncaaf_player_props_value
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -18,4 +19,7 @@ urlpatterns = [
     #nhl
     path("nhl/events", get_nhl_events_info, name="nhl_events"),
     path("nhl/dfs-player-props", get_nhl_player_props_value, name="nhl_player_props_value"),
+    #ncaaf
+    path("ncaaf/events", get_ncaaf_events_info, name="ncaaf_events"),
+    path("ncaaf/dfs-player-props", get_ncaaf_player_props_value, name="ncaaf_player_props_value"),
 ]
