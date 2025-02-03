@@ -1,4 +1,7 @@
 # utils.py
+import openpyxl
+from openpyxl.styles import Alignment
+from oddsApi.settings import NBA_UNDERDOG_PROPS_FILE_PATH, NBA_PRIZEPICKS_PROPS_FILE_PATH
 # markets => 
 # [ player_points, player_rebounds, player_assists, player_points_rebounds_assists,
 # player_points_rebounds, player_points_assists, player_rebounds_assists, player_blocks, player_steals, 
@@ -14,7 +17,7 @@ NBA_PLAYER_ODDS_REGIONS = "us"
 NBA_PLAYER_DFS_REGIONS = "us_dfs"
 NBA_PLAYER_ODDS_FORMAT = "decimal"
 
-def filter_better_odds_selection(player_props):
+def filter_better_odds_selection(player_props, dfs_site):
     """
     Filters out the worse odds for each player by comparing 'over' and 'under' odds for each bookmaker.
     Keeps only the better (more negative) odds per bookmaker, based on the overall best selection.
@@ -86,18 +89,27 @@ def filter_better_odds_selection(player_props):
 
         average_odds = decimal_to_american(avg_over_odds) if better_selection == "over" else decimal_to_american(avg_under_odds)
 
-        # Add the filtered prop to the result list
-        filtered_props.append({
-            "player_name": player_name,
-            "market": market,
-            "point": prop_line,
-            "selection": better_selection,
-            "average_odds": average_odds,
-            "implied_probability": implied_probability(average_odds),
-            "bookmaker_odds": selected_bookmaker_odds
-        })
+        # Add the filtered prop to the result list if there are more than 2 bookmaker odds
+        if len(selected_bookmaker_odds) > 2:
+            filtered_props.append({
+                "player_name": player_name,
+                "market": market,
+                "point": prop_line,
+                "lean": better_selection,
+                "average_odds": average_odds,
+                "implied_probability": implied_probability(average_odds),
+                "bookmaker_odds": selected_bookmaker_odds
+            })
 
         filtered_props.sort(key=lambda x: x["implied_probability"], reverse=True)
+
+        # Keep only the top 20 elements if there are more than 20
+        filtered_props = filtered_props[:20]
+
+        if dfs_site.lower() == "ud":
+            export_to_excel(filtered_props, NBA_UNDERDOG_PROPS_FILE_PATH)
+        elif dfs_site.lower() == "pp":
+            export_to_excel(filtered_props, NBA_PRIZEPICKS_PROPS_FILE_PATH)
 
     return filtered_props
 
@@ -114,24 +126,24 @@ def decimal_to_american(decimal_odds):
 
 def format_market(market):
     switcher = {
-        "player_points": "pts",
-        "player_rebounds": "rebs",
-        "player_assists": "asts",
-        "player_points_rebounds_assists": "pra",
-        "player_points_rebounds": "p+r",
-        "player_points_assists": "p+a",
-        "player_rebounds_assists": "r+a",
-        "player_blocks": "blks",
-        "player_steals": "stls",
-        "player_blocks_steals": "blks+stls",
-        "player_threes": "threes",
-        "player_turnovers": "to",
-        "player_points_q1": "pts_q1",
-        "player_rebounds_q1": "rebs_q1",
-        "player_assists_q1": "asts_q1",
-        "player_field_goals": "fg",
-        "player_frees_made": "ftm",
-        "player_frees_attempts": "fta"
+        "player_points": "Points",
+        "player_rebounds": "Rebounds",
+        "player_assists": "Assists",
+        "player_points_rebounds_assists": "Pts+Reb+Asts",
+        "player_points_rebounds": "Pts+Rebs",
+        "player_points_assists": "Pts+Ast",
+        "player_rebounds_assists": "Reb+Asts",
+        "player_blocks": "Blocks",
+        "player_steals": "Steals",
+        "player_blocks_steals": "Blks+Stls",
+        "player_threes": "3PTM",
+        "player_turnovers": "TO",
+        "player_points_q1": "Pts_q1",
+        "player_rebounds_q1": "Rebs_q1",
+        "player_assists_q1": "Asts_q1",
+        "player_field_goals": "FG",
+        "player_frees_made": "FTM",
+        "player_frees_attempts": "FTA"
     }
     return switcher.get(market, "unknown")  # Default to "unknown" if market doesn't match any case
 
@@ -152,3 +164,110 @@ def implied_probability(average_odds):
         probability = -average_odds / (-average_odds + 100)
     
     return round(probability * 100, 2)  # Return as percentage, rounded to 2 decimal places
+
+def export_to_excel(data, filename):
+    # Define the headers as you requested
+    headers = ["Player Name", "Lean", "Prop Line", "Market", "DraftKings", "FanDuel", "BetRivers", "BetOnline.ag", "Bovada", "BetMGM", "Implied Probability"]
+
+    try:
+        # Create a new workbook and active sheet
+        wb = openpyxl.Workbook()
+        sheet = wb.active
+        sheet.title = "Player Props"
+
+        # Add the headers to the first row and center align them
+        for col_num, header in enumerate(headers, 1):
+            sheet.cell(row=1, column=col_num, value=header)
+            # Apply center alignment for headers
+            sheet.cell(row=1, column=col_num).alignment = Alignment(horizontal="center")
+
+        # Loop through the data and add rows for each prop
+        for row_num, prop in enumerate(data, 2):
+            player_name = prop.get("player_name", "n/a")
+            market = prop.get("market", "n/a")
+            lean = prop.get("lean", "n/a")
+            prop_line = prop.get("point", "n/a")
+            implied_probability = prop.get("implied_probability", "n/a")
+            bookmaker_odds = prop.get("bookmaker_odds", [])
+
+            # combined_prop_line_market = f"{prop_line} {market}"
+
+            # Initialize the odds dictionary with "n/a" for each bookmaker
+            bookmaker_columns = {
+                "DraftKings": "n/a",
+                "FanDuel": "n/a",
+                "BetRivers": "n/a",
+                "BetOnline.ag": "n/a",
+                "Bovada": "n/a",
+                "BetMGM": "n/a"
+            }
+
+            # Loop through each bookmaker and add the odds to the correct column
+            for odds_entry in bookmaker_odds:
+                bookmaker_name = odds_entry["bookmaker"]
+                if bookmaker_name in bookmaker_columns:
+                    bookmaker_columns[bookmaker_name] = odds_entry["odds"]
+
+            # Flatten the odds and implied probabilities for the row
+            row = [player_name, lean.capitalize(), prop_line, market] + list(bookmaker_columns.values()) + [implied_probability]
+
+            # Add the row data to the sheet and apply center alignment
+            for col_num, cell_value in enumerate(row, 1):
+                cell = sheet.cell(row=row_num, column=col_num, value=cell_value)
+                cell.alignment = Alignment(horizontal="center")
+
+        # Adjust column width based on the longest cell content
+        for col_num in range(1, len(headers) + 1):
+            max_length = 0
+            for row_num in range(1, len(data) + 1):  # +2 for headers and rows
+                cell_value = str(sheet.cell(row=row_num, column=col_num).value)
+                max_length = max(max_length, len(cell_value))
+            adjusted_width = (max_length + 2)  # Add a little padding
+            sheet.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = adjusted_width
+
+        # Save the workbook to the specified filename
+        wb.save(filename)
+
+        print(f"Data successfully exported")
+
+    except Exception as e:
+        print(f"Error exporting data: {e}")
+
+
+# def export_to_csv(data, filename):
+#     # Define the headers as you requested
+#     headers = ["Player Name", "Market", "Lean", "Prop Line", "DraftKings", "FanDuel", "BetRivers", "BetOnline.ag", "Bovada", "BetMGM", "Implied Probability"]
+
+#     # Open the CSV file for writing
+#     with open(filename, mode="w", newline="") as file:
+#         writer = csv.writer(file)
+#         writer.writerow(headers)  # Write the headers
+
+#         # Loop through the props and map the data for each row
+#         for prop in data:
+#             player_name = prop.get("player_name", "n/a")
+#             market = prop.get("market", "n/a")
+#             lean = prop.get("lean", "n/a")  
+#             prop_line = prop.get("point", "n/a")
+#             implied_probability = prop.get("implied_probability", "n/a")
+#             bookmaker_odds = prop.get("bookmaker_odds", [])
+
+#             # Initialize the odds dictionary with "n/a" for each bookmaker
+#             bookmaker_columns = {
+#                 "DraftKings": "n/a",
+#                 "FanDuel": "n/a",
+#                 "BetRivers": "n/a",
+#                 "BetOnline": "n/a",
+#                 "Bovada": "n/a",
+#                 "BetMGM": "n/a"
+#             }
+
+#             # Loop through each bookmaker and add the odds to the correct column
+#             for odds_entry in bookmaker_odds:
+#                 bookmaker_name = odds_entry["bookmaker"]
+#                 if bookmaker_name in bookmaker_columns:
+#                     bookmaker_columns[bookmaker_name] = odds_entry["odds"]
+
+#             # Flatten the odds and implied probabilities for the row
+#             row = [player_name, market, lean, prop_line] + list(bookmaker_columns.values()) + [implied_probability]
+#             writer.writerow(row)  # Write the row to the CSV file

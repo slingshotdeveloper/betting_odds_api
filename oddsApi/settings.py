@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../.env'))
 
 API_KEY = os.getenv('API_KEY')
+NBA_UNDERDOG_PROPS_FILE_PATH = os.getenv('NBA_UNDERDOG_PROPS_FILE_PATH')
+NBA_PRIZEPICKS_PROPS_FILE_PATH = os.getenv('NBA_PRIZEPICKS_PROPS_FILE_PATH')
 NBA_EVENTS_API_URL = os.getenv('NBA_EVENTS_API_URL')
 NBA_PLAYER_PROPS_URL = os.getenv('NBA_PLAYER_PROPS_URL')
 
