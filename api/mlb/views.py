@@ -1,27 +1,27 @@
 from django.http import JsonResponse
 from django.views import View
-from .services.nfl_events import *
-from .services.nfl_player_props_odds import get_nfl_player_props_odds
-from .services.nfl_dfs_player_prop_lines import get_dfs_player_props_lines
+from .services.mlb_events import *
+from .services.mlb_player_props_odds import get_mlb_player_props_odds
+from .services.mlb_dfs_player_prop_lines import get_dfs_player_props_lines
 from .utils import *
     
-def get_nfl_events_info(request):
-    return get_nfl_events(request)
+def get_mlb_events_info(request):
+    return get_mlb_events(request)
 
-def get_nfl_player_props_value(request):
+def get_mlb_player_props_value(request):
     """
     Combine player prop lines from Underdog and PrizePicks with matching bookmaker odds.
     Filters out bookmaker odds that don't match the DFS prop line.
     """
     try:
-        event_ids = get_nfl_events_ids(request)
+        event_ids = get_mlb_events_ids(request)
         # event_ids = [event_ids[1]] # Remove when ready for production
 
         underdog_props = []
         prizepicks_props = []
 
         for event_id in event_ids:
-            player_props_odds = get_nfl_player_props_odds(request, event_id).get("player_props", {})
+            player_props_odds = get_mlb_player_props_odds(request, event_id).get("player_props", {})
             
             if not player_props_odds:
                 continue
