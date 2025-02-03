@@ -18,14 +18,21 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../.env'))
 
 API_KEY = os.getenv('API_KEY')
+#NBA
 NBA_UNDERDOG_PROPS_FILE_PATH = os.getenv('NBA_UNDERDOG_PROPS_FILE_PATH')
 NBA_PRIZEPICKS_PROPS_FILE_PATH = os.getenv('NBA_PRIZEPICKS_PROPS_FILE_PATH')
 NBA_EVENTS_API_URL = os.getenv('NBA_EVENTS_API_URL')
 NBA_PLAYER_PROPS_URL = os.getenv('NBA_PLAYER_PROPS_URL')
+#NFL
 NFL_UNDERDOG_PROPS_FILE_PATH = os.getenv('NFL_UNDERDOG_PROPS_FILE_PATH')
 NFL_PRIZEPICKS_PROPS_FILE_PATH = os.getenv('NFL_PRIZEPICKS_PROPS_FILE_PATH')
 NFL_EVENTS_API_URL = os.getenv('NFL_EVENTS_API_URL')
 NFL_PLAYER_PROPS_URL = os.getenv('NFL_PLAYER_PROPS_URL')
+#MLB
+MLB_UNDERDOG_PROPS_FILE_PATH = os.getenv('MLB_UNDERDOG_PROPS_FILE_PATH')
+MLB_PRIZEPICKS_PROPS_FILE_PATH = os.getenv('MLB_PRIZEPICKS_PROPS_FILE_PATH')
+MLB_EVENTS_API_URL = os.getenv('MLB_EVENTS_API_URL')
+MLB_PLAYER_PROPS_URL = os.getenv('MLB_PLAYER_PROPS_URL')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
