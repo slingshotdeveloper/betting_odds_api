@@ -25,11 +25,16 @@ def get_nba_player_props_odds(request, event_id):
         player_props = {}
 
         for bookmaker in data.get("bookmakers", []):
+            bookmaker_name = bookmaker.get("key", "")
+
+            if bookmaker_name not in NBA_BOOKMAKERS:
+                continue
+
             for market in bookmaker.get("markets", []):
                 market_name = market.get("key", "unknown_market")
                 for outcome in market.get("outcomes", []):
                     player_name = outcome["description"]
-                    selection = outcome["name"]
+                    lean = outcome["name"]
                     odds = outcome["price"]
                     point = outcome["point"]
                     key = player_name  # Use player name as the key
@@ -44,7 +49,7 @@ def get_nba_player_props_odds(request, event_id):
 
                     # Add the player's prop with bookmaker info
                     player_props[key].append({
-                        "selection": selection,
+                        "lean": lean,
                         "market": market_name,
                         "point": point,
                         "odds": odds,

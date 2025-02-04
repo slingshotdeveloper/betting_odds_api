@@ -57,8 +57,8 @@ def get_nfl_player_props_value(request):
                     elif bookmaker == "prizepicks":
                         prizepicks_props.append(player_entry)
 
-        underdog_props = filter_better_odds_selection(underdog_props, "ud")
-        prizepicks_props = filter_better_odds_selection(prizepicks_props, "pp")
+        underdog_props = filter_better_odds_lean(underdog_props, "ud")
+        prizepicks_props = filter_better_odds_lean(prizepicks_props, "pp")
 
         return JsonResponse({
             "underdog_props": underdog_props,
