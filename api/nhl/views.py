@@ -15,7 +15,7 @@ def get_nhl_player_props_value(request):
     """
     try:
         event_ids = get_nhl_events_ids(request)
-        # event_ids = [event_ids[0]] # Remove when ready for production
+        event_ids = event_ids[0:1] # Remove when ready for production
 
         underdog_props = []
         prizepicks_props = []
@@ -57,8 +57,8 @@ def get_nhl_player_props_value(request):
                     elif bookmaker == "prizepicks":
                         prizepicks_props.append(player_entry)
 
-        underdog_props = filter_better_odds_selection(underdog_props, "ud")
-        prizepicks_props = filter_better_odds_selection(prizepicks_props, "pp")
+        underdog_props = filter_better_odds_lean(underdog_props, "ud")
+        prizepicks_props = filter_better_odds_lean(prizepicks_props, "pp")
 
         return JsonResponse({
             "underdog_props": underdog_props,

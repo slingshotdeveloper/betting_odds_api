@@ -13,14 +13,23 @@ NBA_PLAYER_MARKETS = "player_points"
 # player_steals_alternate, player_turnovers_alternate, player_threes_alternate, player_points_assists_alternate,
 # player_points_rebounds_alternate, player_rebounds_assists_alternate, player_points_rebounds_assists_alternate ]
 NBA_ALTERNATE_PLAYER_MARKETS = ""
-NBA_PLAYER_ODDS_REGIONS = "us"
+NBA_PLAYER_ODDS_REGIONS = "us,eu"
 NBA_PLAYER_DFS_REGIONS = "us_dfs"
 NBA_PLAYER_ODDS_FORMAT = "decimal"
+NBA_BOOKMAKERS = ["pinnacle", "draftkings", "fanduel", "betmgm", "williamhill_us"]  # Filter list
+NBA_BOOKMAKER_WEIGHTS = {
+        "Pinnacle": 0.50,
+        "Caesars": 0.20,
+        "BetMGM": 0.20,
+        "DraftKings": 0.05,
+        "FanDuel": 0.05
+    }
 
-def filter_better_odds_selection(player_props, dfs_site):
+
+def filter_better_odds_lean(player_props, dfs_site):
     """
     Filters out the worse odds for each player by comparing 'over' and 'under' odds for each bookmaker.
-    Keeps only the better (more negative) odds per bookmaker, based on the overall best selection.
+    Keeps only the better (more negative) odds per bookmaker, based on the overall best lean.
     """
     filtered_props = []
 
@@ -32,80 +41,108 @@ def filter_better_odds_selection(player_props, dfs_site):
 
         market = format_market(market.lower())
         
-        over_odds_total = 0
-        under_odds_total = 0
-        over_count = 0
-        under_count = 0
-        better_selection = ""
+        bookmaker_groups = {}  # Store "over" and "under" odds together by bookmaker
 
-        # Organize odds by bookmaker
+        # Group odds by bookmaker
         for odds_entry in bookmaker_odds:
-            selection = odds_entry["selection"].lower()  # "over" or "under"
+            bookmaker = odds_entry["bookmaker"]
+            lean = odds_entry["lean"].lower()  # "over" or "under"
             odds = odds_entry["odds"]
 
-            # Track sum and count for averaging
-            if selection == "over":
-                over_odds_total += odds
-                over_count += 1
-            elif selection == "under":
-                under_odds_total += odds
-                under_count += 1
+            if bookmaker not in bookmaker_groups:
+                bookmaker_groups[bookmaker] = {"over": None, "under": None}
 
-        # Calculate average odds, avoid division by zero
-        avg_over_odds = over_odds_total / over_count if over_count > 0 else None
-        avg_under_odds = under_odds_total / under_count if under_count > 0 else None
+            bookmaker_groups[bookmaker][lean] = odds
 
-        # Round average odds to two decimal places
-        avg_over_odds = round(avg_over_odds, 2) if avg_over_odds is not None else None
-        avg_under_odds = round(avg_under_odds, 2) if avg_under_odds is not None else None
+        # Calculate fair odds for each bookmaker
+        fair_odds_per_bookmaker = []
+        for bookmaker, odds_pair in bookmaker_groups.items():
+            over_odds = odds_pair["over"]
+            under_odds = odds_pair["under"]
 
-        # Determine better selection based on averages
-        if avg_over_odds and avg_under_odds:
-            if avg_over_odds < avg_under_odds:
-                better_selection = "over"
-            elif avg_over_odds > avg_under_odds:
-                better_selection = "under"
+            if over_odds and under_odds:  # Ensure both exist
+                fair_over, fair_under = calculate_fair_odds(over_odds, under_odds)
+
+                fair_odds_per_bookmaker.append({
+                    "bookmaker": bookmaker,
+                    "fair_over": fair_over,
+                    "fair_under": fair_under
+                })
+
+        # Calculate weighted fair odds (only consider bookmakers that exist in the odds data)
+        weighted_fair_over = 0
+        weighted_fair_under = 0
+        total_weight = 0
+
+        for fair_odds in fair_odds_per_bookmaker:
+            bookmaker = fair_odds["bookmaker"]
+
+            # Check if the bookmaker exists in our weights list
+            if bookmaker in NBA_BOOKMAKER_WEIGHTS:
+                weight = NBA_BOOKMAKER_WEIGHTS[bookmaker]
+                weighted_fair_over += fair_odds["fair_over"] * weight
+                weighted_fair_under += fair_odds["fair_under"] * weight
+                total_weight += weight
+            
+        # Normalize by the total weight (if total_weight > 0, to prevent division by zero)
+        avg_fair_over_odds = weighted_fair_over / total_weight if total_weight > 0 else None
+        avg_fair_under_odds = weighted_fair_under / total_weight if total_weight > 0 else None
+
+        avg_fair_over_odds = round(avg_fair_over_odds, 2) if avg_fair_over_odds is not None else None
+        avg_fair_under_odds = round(avg_fair_under_odds, 2) if avg_fair_under_odds is not None else None
+
+        # Determine better lean based on fair odds averages
+        better_lean = ""
+        if avg_fair_over_odds and avg_fair_under_odds:
+            if avg_fair_over_odds < avg_fair_under_odds:
+                better_lean = "over"
+            elif avg_fair_over_odds > avg_fair_under_odds:
+                better_lean = "under"
             else:
-                better_selection = "n/a"
-        elif avg_over_odds:  # If there's no under odds, pick over
-            better_selection = "over"
-        elif avg_under_odds:  # If there's no over odds, pick under
-            better_selection = "under"
+                better_lean = "n/a"
+        elif avg_fair_over_odds:  # If there's no under odds, pick over
+            better_lean = "over"
+        elif avg_fair_under_odds:  # If there's no over odds, pick under
+            better_lean = "under"
 
-        if better_selection == "n/a":
+        if better_lean == "n/a":
             continue
-        
-        # Filter bookmaker odds for the better selection
+
+        # Filter bookmaker odds for the better lean
         selected_bookmaker_odds = []
         for odds_entry in bookmaker_odds:
-            if odds_entry["selection"].lower() == better_selection:
+            if odds_entry["lean"].lower() == better_lean:
                 selected_bookmaker_odds.append({
-                    "selection": odds_entry["selection"],
+                    "lean": odds_entry["lean"],
                     "market": market,
                     "point": prop_line,
                     "odds": decimal_to_american(odds_entry["odds"]),
                     "bookmaker": odds_entry["bookmaker"]
                 })
 
-        average_odds = decimal_to_american(avg_over_odds) if better_selection == "over" else decimal_to_american(avg_under_odds)
+        # Determine the average odds
+        average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
 
-        # Add the filtered prop to the result list if there are more than 2 bookmaker odds
-        if len(selected_bookmaker_odds) > 2:
+        # Check if at least two bookmakers exist, and one of them must be Pinnacle, BetMGM, or Caesars
+        if len(bookmaker_groups) >= 2 and any(bookmaker in ["Pinnacle", "BetMGM", "Caesars"] for bookmaker in bookmaker_groups):
             filtered_props.append({
                 "player_name": player_name,
                 "market": market,
                 "point": prop_line,
-                "lean": better_selection,
-                "average_odds": average_odds,
-                "implied_probability": implied_probability(average_odds),
+                "lean": better_lean,
+                "average_fair_odds": average_odds,
+                "fair_probability": implied_probability(average_odds),
                 "bookmaker_odds": selected_bookmaker_odds
             })
 
-        filtered_props.sort(key=lambda x: x["implied_probability"], reverse=True)
+
+        # Sort by implied probability in descending order
+        filtered_props.sort(key=lambda x: x["fair_probability"], reverse=True)
 
         # Keep only the top 20 elements if there are more than 20
-        filtered_props = filtered_props[:20]
+        filtered_props = filtered_props[:15]
 
+        # Export to the respective site
         if dfs_site.lower() == "ud":
             export_to_excel(filtered_props, NBA_UNDERDOG_PROPS_FILE_PATH)
         elif dfs_site.lower() == "pp":
@@ -123,6 +160,7 @@ def decimal_to_american(decimal_odds):
         american_odds = - (100 / (decimal_odds - 1))
     
     return round(american_odds)
+
 
 def format_market(market):
     switcher = {
@@ -165,9 +203,10 @@ def implied_probability(average_odds):
     
     return round(probability * 100, 2)  # Return as percentage, rounded to 2 decimal places
 
+
 def export_to_excel(data, filename):
     # Define the headers as you requested
-    headers = ["Player Name", "Lean", "Prop Line", "Market", "DraftKings", "FanDuel", "BetRivers", "BetOnline.ag", "Bovada", "BetMGM", "Implied Probability"]
+    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "BetMGM", "DraftKings", "FanDuel", "Fair Probability"]
 
     try:
         # Create a new workbook and active sheet
@@ -187,19 +226,18 @@ def export_to_excel(data, filename):
             market = prop.get("market", "n/a")
             lean = prop.get("lean", "n/a")
             prop_line = prop.get("point", "n/a")
-            implied_probability = prop.get("implied_probability", "n/a")
+            fair_probability = prop.get("fair_probability", "n/a")
             bookmaker_odds = prop.get("bookmaker_odds", [])
 
             # combined_prop_line_market = f"{prop_line} {market}"
 
             # Initialize the odds dictionary with "n/a" for each bookmaker
             bookmaker_columns = {
-                "DraftKings": "n/a",
-                "FanDuel": "n/a",
-                "BetRivers": "n/a",
-                "BetOnline.ag": "n/a",
-                "Bovada": "n/a",
-                "BetMGM": "n/a"
+                "Pinnacle": "",
+                "Caesars": "",
+                "BetMGM": "",
+                "DraftKings": "",
+                "FanDuel": "",
             }
 
             # Loop through each bookmaker and add the odds to the correct column
@@ -209,7 +247,7 @@ def export_to_excel(data, filename):
                     bookmaker_columns[bookmaker_name] = odds_entry["odds"]
 
             # Flatten the odds and implied probabilities for the row
-            row = [player_name, lean.capitalize(), prop_line, market] + list(bookmaker_columns.values()) + [implied_probability]
+            row = [player_name, lean.capitalize(), prop_line, market] + list(bookmaker_columns.values()) + [fair_probability]
 
             # Add the row data to the sheet and apply center alignment
             for col_num, cell_value in enumerate(row, 1):
@@ -234,40 +272,23 @@ def export_to_excel(data, filename):
         print(f"Error exporting data: {e}")
 
 
-# def export_to_csv(data, filename):
-#     # Define the headers as you requested
-#     headers = ["Player Name", "Market", "Lean", "Prop Line", "DraftKings", "FanDuel", "BetRivers", "BetOnline.ag", "Bovada", "BetMGM", "Implied Probability"]
+def calculate_fair_odds(over_odds, under_odds):
+    """
+    Given decimal odds for 'over' and 'under', calculate the fair odds by removing the vig.
+    """
+    # Convert Decimal odds to Implied Probability
+    over_prob = 1 / over_odds
+    under_prob = 1 / under_odds
 
-#     # Open the CSV file for writing
-#     with open(filename, mode="w", newline="") as file:
-#         writer = csv.writer(file)
-#         writer.writerow(headers)  # Write the headers
+    # Total implied probability with vig
+    total_prob = over_prob + under_prob
 
-#         # Loop through the props and map the data for each row
-#         for prop in data:
-#             player_name = prop.get("player_name", "n/a")
-#             market = prop.get("market", "n/a")
-#             lean = prop.get("lean", "n/a")  
-#             prop_line = prop.get("point", "n/a")
-#             implied_probability = prop.get("implied_probability", "n/a")
-#             bookmaker_odds = prop.get("bookmaker_odds", [])
+    # Normalize probabilities to remove the vig
+    fair_over_prob = over_prob / total_prob
+    fair_under_prob = under_prob / total_prob
 
-#             # Initialize the odds dictionary with "n/a" for each bookmaker
-#             bookmaker_columns = {
-#                 "DraftKings": "n/a",
-#                 "FanDuel": "n/a",
-#                 "BetRivers": "n/a",
-#                 "BetOnline": "n/a",
-#                 "Bovada": "n/a",
-#                 "BetMGM": "n/a"
-#             }
+    # Convert fair probabilities back to Decimal odds
+    fair_over_odds = 1 / fair_over_prob if fair_over_prob != 0 else None
+    fair_under_odds = 1 / fair_under_prob if fair_under_prob != 0 else None
 
-#             # Loop through each bookmaker and add the odds to the correct column
-#             for odds_entry in bookmaker_odds:
-#                 bookmaker_name = odds_entry["bookmaker"]
-#                 if bookmaker_name in bookmaker_columns:
-#                     bookmaker_columns[bookmaker_name] = odds_entry["odds"]
-
-#             # Flatten the odds and implied probabilities for the row
-#             row = [player_name, market, lean, prop_line] + list(bookmaker_columns.values()) + [implied_probability]
-#             writer.writerow(row)  # Write the row to the CSV file
+    return fair_over_odds, fair_under_odds
