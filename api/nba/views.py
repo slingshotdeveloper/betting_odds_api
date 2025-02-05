@@ -1,7 +1,5 @@
 from django.http import JsonResponse
 from django.views import View
-import requests
-import json
 from openpyxl.utils.dataframe import dataframe_to_rows
 import pandas as pd
 from .services.nba_events import *
@@ -24,7 +22,7 @@ def get_nba_player_props_value(request):
     """
     try:
         event_ids = get_nba_events_ids(request)
-        event_ids = [event_ids[3]] # Remove when ready for production
+        # event_ids = [event_ids[5]] # Remove when ready for production
 
         underdog_props = []
         prizepicks_props = []

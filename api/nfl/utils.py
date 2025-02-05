@@ -8,23 +8,16 @@ from oddsApi.settings import NFL_UNDERDOG_PROPS_FILE_PATH, NFL_PRIZEPICKS_PROPS_
 # player_rush_attempts, player_rush_longest, player_rush_reception_tds, player_rush_reception_yds, player_rush_yds,
 # player_sacks, player_solo_tackles, player_tackles_assists, player_kicking_points, player_field_goals,
 # player_defensive_interceptions, player_assists, player_pass_yds_q1 ]
-# NFL_PLAYER_MARKETS = "player_pass_attempts,player_pass_completions,player_pass_interceptions,player_pass_longest_completion,player_pass_yds,player_pass_yds_q1,player_pass_tds,player_rush_attempts,player_rush_longest,player_rush_yds,player_rush_reception_yds,player_rush_reception_tds,player_reception_yds,player_reception_longest,player_receptions,player_sacks,player_solo_tackles,player_tackles_assists"
-NFL_PLAYER_MARKETS = "player_rush_longest"
-# alternate markets => 
-# [ player_points_alternate, player_rebounds_alternate, player_assists_alternate, player_blocks_alternate	
-# player_steals_alternate, player_turnovers_alternate, player_threes_alternate, player_points_assists_alternate,
-# player_points_rebounds_alternate, player_rebounds_assists_alternate, player_points_rebounds_assists_alternate ]
-NFL_ALTERNATE_PLAYER_MARKETS = ""
+NFL_PLAYER_MARKETS = "player_pass_attempts,player_pass_completions,player_pass_interceptions,player_pass_longest_completion,player_pass_yds,player_pass_yds_q1,player_pass_tds,player_rush_attempts,player_rush_longest,player_rush_yds,player_rush_reception_yds,player_rush_reception_tds,player_reception_yds,player_reception_longest,player_receptions,player_sacks,player_solo_tackles,player_tackles_assists"
 NFL_PLAYER_ODDS_REGIONS = "us,eu"
 NFL_PLAYER_DFS_REGIONS = "us_dfs"
 NFL_PLAYER_ODDS_FORMAT = "decimal"
-NFL_BOOKMAKERS = ["pinnacle", "draftkings", "fanduel", "betmgm", "williamhill_us"]  # Filter list
+NFL_BOOKMAKERS = ["pinnacle", "williamhill_us", "draftkings", "fanduel"]  # Filter list
 NFL_BOOKMAKER_WEIGHTS = {
-        "Pinnacle": 0.50,
-        "Caesars": 0.20,
-        "BetMGM": 0.20,
-        "DraftKings": 0.05,
-        "FanDuel": 0.05
+        "Pinnacle": 0.45,
+        "Caesars": 0.25,
+        "DraftKings": 0.15,
+        "FanDuel": 0.15
     }
 
 
@@ -95,7 +88,7 @@ def filter_better_odds_lean(player_props, dfs_site):
 
         # Determine better lean based on fair odds averages
         better_lean = ""
-        if avg_fair_over_odds and avg_fair_under_odds:
+        if avg_fair_over_odds is not None and avg_fair_under_odds is not None:
             if avg_fair_over_odds < avg_fair_under_odds:
                 better_lean = "over"
             elif avg_fair_over_odds > avg_fair_under_odds:
@@ -106,6 +99,8 @@ def filter_better_odds_lean(player_props, dfs_site):
             better_lean = "over"
         elif avg_fair_under_odds:  # If there's no over odds, pick under
             better_lean = "under"
+        else:
+            better_lean = "n/a"
 
         if better_lean == "n/a":
             continue
@@ -118,24 +113,26 @@ def filter_better_odds_lean(player_props, dfs_site):
                     "lean": odds_entry["lean"],
                     "market": market,
                     "point": prop_line,
-                    "odds": decimal_to_american(odds_entry["odds"]),
+                    "odds": decimal_to_american(odds_entry["odds"]) if odds_entry.get("odds") else None,
                     "bookmaker": odds_entry["bookmaker"]
                 })
 
         # Determine the average odds
-        average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        if avg_fair_over_odds:
+            average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        else: 
+            average_odds = None
 
         # Check if at least two bookmakers exist, and one of them must be Pinnacle, BetMGM, or Caesars
-        if len(bookmaker_groups) >= 2 and any(bookmaker in ["Pinnacle", "BetMGM", "Caesars"] for bookmaker in bookmaker_groups):
-            filtered_props.append({
-                "player_name": player_name,
-                "market": market,
-                "point": prop_line,
-                "lean": better_lean,
-                "average_fair_odds": average_odds,
-                "fair_probability": implied_probability(average_odds),
-                "bookmaker_odds": selected_bookmaker_odds
-            })
+        filtered_props.append({
+            "player_name": player_name,
+            "market": market,
+            "point": prop_line,
+            "lean": better_lean,
+            "average_fair_odds": average_odds,
+            "fair_probability": implied_probability(average_odds) if average_odds else None,
+            "bookmaker_odds": selected_bookmaker_odds
+        })
 
 
         # Sort by implied probability in descending order
@@ -166,28 +163,28 @@ def decimal_to_american(decimal_odds):
 
 def format_market(market):
     switcher = {
-        "player_pass_attempts": "Pass Attempts",
-        "player_pass_completions": "Pass Completions",
+        "player_pass_attempts": "Pass Att",
+        "player_pass_completions": "Pass Comp",
         "player_pass_interceptions": "Pass Ints",
-        "player_pass_longest_completion": "Longest Completion",
+        "player_pass_longest_completion": "Long Comp",
         "player_pass_yds": "Pass Yards",
         "player_pass_tds": "Pass TDs",
-        "player_reception_longest": "Longest Reception",
-        "player_receptions": "Receptions",
-        "player_reception_yds": "Receiving Yards",
-        "player_rush_attempts": "Rush Attempts",
-        "player_rush_longest": "Longest Rush",
+        "player_reception_longest": "Long Rec",
+        "player_receptions": "Rec",
+        "player_reception_yds": "Rec Yards",
+        "player_rush_attempts": "Rush Att",
+        "player_rush_longest": "Long Rush",
         "player_rush_reception_tds": "Rush+Rec TDs",
-        "player_rush_reception_yds": "Rush+Rec Yards",
-        "player_rush_yds": "Rushing Yards",
+        "player_rush_reception_yds": "Rush+Rec Yds",
+        "player_rush_yds": "Rush Yards",
         "player_sacks": "Sacks",
-        "player_solo_tackles": "Solo Tackles",
-        "player_tackles_assists": "Tackles+Assists",
-        "player_kicking_points": "Kicking Points",
-        "player_field_goals": "Field Goals",
+        "player_solo_tackles": "Solo Tkls",
+        "player_tackles_assists": "Tkls+Assts",
+        "player_kicking_points": "Kick Points",
+        "player_field_goals": "FG",
         "player_defensive_interceptions": "Def Ints",
-        "player_assists": "Assists",
-        "player_pass_yds_q1": "Pass Yards 1Q"
+        "player_assists": "Assts",
+        "player_pass_yds_q1": "1QPass Yds"
     }
     return switcher.get(market, "unknown")  # Default to "unknown" if market doesn't match any case
 
@@ -212,7 +209,7 @@ def implied_probability(average_odds):
 
 def export_to_excel(data, filename):
     # Define the headers as you requested
-    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "BetMGM", "DraftKings", "FanDuel", "Fair Probability"]
+    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "DraftKings", "FanDuel", "Fair Probability"]
 
     try:
         # Create a new workbook and active sheet
@@ -241,7 +238,6 @@ def export_to_excel(data, filename):
             bookmaker_columns = {
                 "Pinnacle": "",
                 "Caesars": "",
-                "BetMGM": "",
                 "DraftKings": "",
                 "FanDuel": "",
             }

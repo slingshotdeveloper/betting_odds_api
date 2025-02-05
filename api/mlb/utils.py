@@ -11,13 +11,12 @@ MLB_PLAYER_MARKETS = "pitcher_strikeouts"
 MLB_PLAYER_ODDS_REGIONS = "us,eu"
 MLB_PLAYER_DFS_REGIONS = "us_dfs"
 MLB_PLAYER_ODDS_FORMAT = "decimal"
-MLB_BOOKMAKERS = ["pinnacle", "draftkings", "fanduel", "betmgm", "williamhill_us"]  # Filter list
+MLB_BOOKMAKERS = ["pinnacle", "williamhill_us", "draftkings", "fanduel"]  # Filter list
 MLB_BOOKMAKER_WEIGHTS = {
-        "Pinnacle": 0.50,
-        "Caesars": 0.20,
-        "BetMGM": 0.20,
-        "DraftKings": 0.05,
-        "FanDuel": 0.05
+        "Pinnacle": 0.45,
+        "Caesars": 0.25,
+        "DraftKings": 0.15,
+        "FanDuel": 0.15
     }
 
 
@@ -88,7 +87,7 @@ def filter_better_odds_lean(player_props, dfs_site):
 
         # Determine better lean based on fair odds averages
         better_lean = ""
-        if avg_fair_over_odds and avg_fair_under_odds:
+        if avg_fair_over_odds is not None and avg_fair_under_odds is not None:
             if avg_fair_over_odds < avg_fair_under_odds:
                 better_lean = "over"
             elif avg_fair_over_odds > avg_fair_under_odds:
@@ -99,6 +98,8 @@ def filter_better_odds_lean(player_props, dfs_site):
             better_lean = "over"
         elif avg_fair_under_odds:  # If there's no over odds, pick under
             better_lean = "under"
+        else:
+            better_lean = "n/a"
 
         if better_lean == "n/a":
             continue
@@ -111,24 +112,26 @@ def filter_better_odds_lean(player_props, dfs_site):
                     "lean": odds_entry["lean"],
                     "market": market,
                     "point": prop_line,
-                    "odds": decimal_to_american(odds_entry["odds"]),
+                    "odds": decimal_to_american(odds_entry["odds"]) if odds_entry.get("odds") else None,
                     "bookmaker": odds_entry["bookmaker"]
                 })
 
         # Determine the average odds
-        average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        if avg_fair_over_odds:
+            average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        else: 
+            average_odds = None
 
         # Check if at least two bookmakers exist, and one of them must be Pinnacle, BetMGM, or Caesars
-        if len(bookmaker_groups) >= 2 and any(bookmaker in ["Pinnacle", "BetMGM", "Caesars"] for bookmaker in bookmaker_groups):
-            filtered_props.append({
-                "player_name": player_name,
-                "market": market,
-                "point": prop_line,
-                "lean": better_lean,
-                "average_fair_odds": average_odds,
-                "fair_probability": implied_probability(average_odds),
-                "bookmaker_odds": selected_bookmaker_odds
-            })
+        filtered_props.append({
+            "player_name": player_name,
+            "market": market,
+            "point": prop_line,
+            "lean": better_lean,
+            "average_fair_odds": average_odds,
+            "fair_probability": implied_probability(average_odds) if average_odds else None,
+            "bookmaker_odds": selected_bookmaker_odds
+        })
 
 
         # Sort by implied probability in descending order
@@ -197,7 +200,7 @@ def implied_probability(average_odds):
 
 def export_to_excel(data, filename):
     # Define the headers as you requested
-    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "BetMGM", "DraftKings", "FanDuel", "Fair Probability"]
+    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "DraftKings", "FanDuel", "Fair Probability"]
 
     try:
         # Create a new workbook and active sheet
@@ -226,7 +229,6 @@ def export_to_excel(data, filename):
             bookmaker_columns = {
                 "Pinnacle": "",
                 "Caesars": "",
-                "BetMGM": "",
                 "DraftKings": "",
                 "FanDuel": "",
             }
