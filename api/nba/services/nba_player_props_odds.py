@@ -1,4 +1,3 @@
-from django.http import JsonResponse
 from oddsApi.settings import API_KEY, NBA_PLAYER_PROPS_URL
 from ..utils import *
 import requests

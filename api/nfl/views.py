@@ -15,7 +15,6 @@ def get_nfl_player_props_value(request):
     """
     try:
         event_ids = get_nfl_events_ids(request)
-        # event_ids = [event_ids[1]] # Remove when ready for production
 
         underdog_props = []
         prizepicks_props = []

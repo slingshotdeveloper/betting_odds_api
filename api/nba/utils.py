@@ -7,7 +7,7 @@ from oddsApi.settings import NBA_UNDERDOG_PROPS_FILE_PATH, NBA_PRIZEPICKS_PROPS_
 # player_points_rebounds, player_points_assists, player_rebounds_assists, player_blocks, player_steals, 
 # player_blocks_steals, player_threes, player_turnovers, player_points_q1, player_rebounds_q1, player_assists_q1
 # player_field_goals, player_frees_made, player_frees_attempts ]
-NBA_PLAYER_MARKETS = "player_points"
+NBA_PLAYER_MARKETS = "player_points,player_rebounds,player_assists,player_points_rebounds_assists,player_points_rebounds,player_points_assists,player_rebounds_assists,player_blocks,player_steals,player_blocks_steals,player_threes,player_turnovers,player_points_q1,player_rebounds_q1,player_assists_q1,player_field_goals,player_frees_made,player_frees_attempts"
 # alternate markets => 
 # [ player_points_alternate, player_rebounds_alternate, player_assists_alternate, player_blocks_alternate	
 # player_steals_alternate, player_turnovers_alternate, player_threes_alternate, player_points_assists_alternate,
@@ -16,13 +16,12 @@ NBA_ALTERNATE_PLAYER_MARKETS = ""
 NBA_PLAYER_ODDS_REGIONS = "us,eu"
 NBA_PLAYER_DFS_REGIONS = "us_dfs"
 NBA_PLAYER_ODDS_FORMAT = "decimal"
-NBA_BOOKMAKERS = ["pinnacle", "draftkings", "fanduel", "betmgm", "williamhill_us"]  # Filter list
+NBA_BOOKMAKERS = ["pinnacle", "williamhill_us", "draftkings", "fanduel"]  # Filter list
 NBA_BOOKMAKER_WEIGHTS = {
-        "Pinnacle": 0.50,
-        "Caesars": 0.20,
-        "BetMGM": 0.20,
-        "DraftKings": 0.05,
-        "FanDuel": 0.05
+        "Pinnacle": 0.45,
+        "Caesars": 0.25,
+        "DraftKings": 0.15,
+        "FanDuel": 0.15
     }
 
 
@@ -93,7 +92,7 @@ def filter_better_odds_lean(player_props, dfs_site):
 
         # Determine better lean based on fair odds averages
         better_lean = ""
-        if avg_fair_over_odds and avg_fair_under_odds:
+        if avg_fair_over_odds is not None and avg_fair_under_odds is not None:
             if avg_fair_over_odds < avg_fair_under_odds:
                 better_lean = "over"
             elif avg_fair_over_odds > avg_fair_under_odds:
@@ -104,9 +103,8 @@ def filter_better_odds_lean(player_props, dfs_site):
             better_lean = "over"
         elif avg_fair_under_odds:  # If there's no over odds, pick under
             better_lean = "under"
-
-        if better_lean == "n/a":
-            continue
+        else:
+            better_lean = "n/a"
 
         # Filter bookmaker odds for the better lean
         selected_bookmaker_odds = []
@@ -121,17 +119,20 @@ def filter_better_odds_lean(player_props, dfs_site):
                 })
 
         # Determine the average odds
-        average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        if avg_fair_over_odds:
+            average_odds = decimal_to_american(avg_fair_over_odds) if better_lean == "over" else decimal_to_american(avg_fair_under_odds)
+        else: 
+            average_odds = None
 
         # Check if at least two bookmakers exist, and one of them must be Pinnacle, BetMGM, or Caesars
-        if len(bookmaker_groups) >= 2 and any(bookmaker in ["Pinnacle", "BetMGM", "Caesars"] for bookmaker in bookmaker_groups):
+        if len(bookmaker_groups) >= 2 and any(bookmaker in ["Pinnacle", "Caesars"] for bookmaker in bookmaker_groups):
             filtered_props.append({
                 "player_name": player_name,
                 "market": market,
                 "point": prop_line,
                 "lean": better_lean,
                 "average_fair_odds": average_odds,
-                "fair_probability": implied_probability(average_odds),
+                "fair_probability": implied_probability(average_odds) if average_odds else None,
                 "bookmaker_odds": selected_bookmaker_odds
             })
 
@@ -206,7 +207,7 @@ def implied_probability(average_odds):
 
 def export_to_excel(data, filename):
     # Define the headers as you requested
-    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "BetMGM", "DraftKings", "FanDuel", "Fair Probability"]
+    headers = ["Player Name", "Lean", "Prop Line", "Market", "Pinnacle", "Caesars", "DraftKings", "FanDuel", "Fair Probability"]
 
     try:
         # Create a new workbook and active sheet
@@ -235,7 +236,6 @@ def export_to_excel(data, filename):
             bookmaker_columns = {
                 "Pinnacle": "",
                 "Caesars": "",
-                "BetMGM": "",
                 "DraftKings": "",
                 "FanDuel": "",
             }
