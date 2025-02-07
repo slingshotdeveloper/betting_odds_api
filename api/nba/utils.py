@@ -170,7 +170,7 @@ def format_market(market):
         "player_assists": "Assists",
         "player_points_rebounds_assists": "Pts+Reb+Asts",
         "player_points_rebounds": "Pts+Rebs",
-        "player_points_assists": "Pts+Ast",
+        "player_points_assists": "Pts+Asts",
         "player_rebounds_assists": "Reb+Asts",
         "player_blocks": "Blocks",
         "player_steals": "Steals",
